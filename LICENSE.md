@@ -1,27 +1,8 @@
-Business Source License
-=======================
-
-License text copyright (c) 2020 MariaDB Corporation Ab, All Rights Reserved.
-“Business Source License” is a trademark of MariaDB Corporation Ab.
-
-Parameters
-
-Licensor:             Entropy Foundation, CHE.383.364.961
-Licensed Works:       All code in this repository. The Licensed Work is
-                      (c) 2026 Entropy Foundation.
-Additional Use Grant: You may make use of the Licensed Work strictly for
-                      evaluation and/or non-production use only. Your use
-                      does not include offering the Licensed Work to third
-                      parties on a hosted or embedded basis.
-Change Date:          Four years from the date the Licensed Work is published.
-Change License:       [Apache 2.0](https://choosealicense.com/licenses/apache-2.0/)
-
-For information about commercial licensing arrangements for the Licensed Work,
-please contact sales@supra.com.
-
-Notice
-
 Business Source License 1.1
+
+License text copyright © 2024 MariaDB plc, All Rights Reserved. 
+"Business Source License" is a trademark of MariaDB plc.
+
 
 Terms
 
@@ -63,3 +44,53 @@ AN "AS IS" BASIS. LICENSOR HEREBY DISCLAIMS ALL WARRANTIES AND CONDITIONS,
 EXPRESS OR IMPLIED, INCLUDING (WITHOUT LIMITATION) WARRANTIES OF
 MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, AND
 TITLE.
+
+MariaDB hereby grants you permission to use this License's text to license
+your works, and to refer to it using the trademark "Business Source License",
+as long as you comply with the Covenants of Licensor below. 
+
+
+Covenants of Licensor
+
+In consideration of the right to use this License's text and the "Business
+Source License" name and trademark, Licensor covenants to MariaDB, and to all
+other recipients of the licensed work to be provided by Licensor:
+  1. To specify as the Change License the GPL Version 2.0 or any later version,
+     or a license that is compatible with GPL Version 2.0 or a later version,
+     where "compatible" means that software provided under the Change License
+     can be included in a program with software provided under GPL Version 2.0
+     or a later version. Licensor may specify additional Change Licenses
+     without limitation.
+  2. To either: (a) specify an additional grant of rights to use that does not
+     impose any additional restriction on the right granted in this License, as
+     the Additional Use Grant; or (b) insert the text "None".
+  3. To specify a Change Date.
+  4. Not to modify this License in any other way.
+
+
+Notice
+
+The Business Source License (this document, or the "License") is not an Open
+Source license. However, the Licensed Work will eventually be made available
+under an Open Source License, as stated in this License.
+
+This is a paramaterized license. The license parameters are: restrictions on
+usage, a change date, and the open source license that will govern usage of the
+software after the change date.
+
+
+Parameters
+
+Licensor:             Entropy Foundation, CHE.383.364.961
+Licensed Work:        All code in this repository. The Licensed Work is
+                      © 2026 Entropy Foundation.
+Additional Use Grant: You may make use of the Licensed Work strictly for
+                      evaluation and/or non-production use only. Your use
+                      does not include offering the Licensed Work to third
+                      parties on a hosted or embedded basis.
+Change Date:          Four years from the date the Licensed Work is published.
+Change License:       [Apache 2.0](https://spdx.org/licenses/Apache-2.0.html)
+
+For information about commercial licensing arrangements for the Licensed Work,
+please contact sales@supra.com.
+
