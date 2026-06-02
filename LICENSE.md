@@ -71,10 +71,6 @@ The Business Source License (this document, or the "License") is not an Open
 Source license. However, the Licensed Work will eventually be made available
 under an Open Source License, as stated in this License.
 
-This is a paramaterized license. The license parameters are: restrictions on
-usage, a change date, and the open source license that will govern usage of the
-software after the change date.
-
 Parameters
 
 Licensor:             Entropy Foundation, CHE.383.364.961
