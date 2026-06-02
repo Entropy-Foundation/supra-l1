@@ -3,7 +3,6 @@ Business Source License 1.1
 License text copyright © 2024 MariaDB plc, All Rights Reserved. 
 "Business Source License" is a trademark of MariaDB plc.
 
-
 Terms
 
 The Licensor hereby grants you the right to copy, modify, create derivative
@@ -49,7 +48,6 @@ MariaDB hereby grants you permission to use this License's text to license
 your works, and to refer to it using the trademark "Business Source License",
 as long as you comply with the Covenants of Licensor below. 
 
-
 Covenants of Licensor
 
 In consideration of the right to use this License's text and the "Business
@@ -67,7 +65,6 @@ other recipients of the licensed work to be provided by Licensor:
   3. To specify a Change Date.
   4. Not to modify this License in any other way.
 
-
 Notice
 
 The Business Source License (this document, or the "License") is not an Open
@@ -77,7 +74,6 @@ under an Open Source License, as stated in this License.
 This is a paramaterized license. The license parameters are: restrictions on
 usage, a change date, and the open source license that will govern usage of the
 software after the change date.
-
 
 Parameters
 
