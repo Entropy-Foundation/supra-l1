@@ -1,8 +1,7 @@
 ####################################### PROTOCOL PARAMETERS #######################################
 
 # The below parameters are fixed for the protocol and must be agreed upon by all node operators
-# at genesis. They may subsequently be updated via governance decisions. Paths are set relative
-# to $SUPRA_HOME.
+# at genesis. They may subsequently be updated via governance decisions.
 
 # Core protocol parameters.
 
@@ -29,7 +28,7 @@ chain_instance.genesis_timestamp_microseconds = 1732060800000000
 ######################################### NODE PARAMETERS #########################################
 
 # The below parameters are node-specific and may be configured as required by the operator. Paths
-# are set relative to $SUPRA_HOME.
+# may be absolute, or relative to the location of the `rpc_node` binary.
 
 # The port on which the node should listen for incoming RPC requests.
 bind_addr = "0.0.0.0:<RPC_ACCESS_PORT>"
@@ -39,7 +38,7 @@ block_provider_is_trusted = false
 # The access tokens used to authenticate public requests to this RPC node for consensus data.
 consensus_access_tokens = []
 # The path to `supra_committees.json`.
-supra_committees_config = "./supra_committees.json"
+supra_committees_config = "<PATH_TO_CONFIG_ROOT>/supra_committees.json"
 
 [chain_state_assembler]
 # Number of certified blocks stored in memory as reference to pending blocks to be executed.
@@ -50,7 +49,7 @@ sync_retry_interval_in_secs = 1
 
 [synchronization.ws]
 # The websocket address of the attached validator.
-consensus_rpc = "ws://<SERVER_PORT>:26000"
+consensus_rpc = "ws://<SERVER_IP>:26000"
 
 [synchronization.ws.certificates]
 # The path to the TLS certificate for the connection with the attached validator.
@@ -63,7 +62,7 @@ root_ca_cert_path = "<PATH_TO_SERVER_ROOT_CA_CERT>.pem"
 # Parameters for the RPC Archive database. This database stores the indexes used to serve RPC API calls.
 [database_setup.dbs.archive.rocks_db]
 # The path at which the database should be created.
-path = "./rpc_archive"
+path = "<PATH_TO_DATABASE_ROOT>/rpc_archive"
 # Whether the database should be pruned. If `true`, data that is more than `epochs_to_retain`
 # old will be deleted.
 enable_pruning = false
@@ -73,7 +72,7 @@ enable_snapshots = false
 # Parameters for the blockchain database.
 [database_setup.dbs.chain_store.rocks_db]
 # The path at which the database should be created.
-path = "./rpc_store"
+path = "<PATH_TO_DATABASE_ROOT>/rpc_store"
 # Whether the database should be pruned. If `true`, data that is more than `epochs_to_retain`
 # old will be deleted.
 enable_pruning = false
@@ -87,7 +86,7 @@ depth = 2
 # The interval between snapshots in seconds.
 interval_in_seconds = 3600
 # The path at which the snapshots should be stored.
-path = "./snapshot"
+path = "<PATH_TO_DATABASE_ROOT>/snapshot"
 # The number of times to retry a snapshot in the event that it fails unexpectedly.
 retry_count = 3
 # The interval in seconds to wait before retrying a snapshot.
