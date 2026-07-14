@@ -7,10 +7,6 @@
 [node]
 # The duration in seconds that a node waits between polling its connections to its peers.
 connection_refresh_timeout_sec = 1
-# If true, all components will attempt to load their previous state from disk. Otherwise,
-# all components will start in their default state. Should always be `true` for testnet and
-# mainnet.
-resume = true
 # The port on which to listen for connections from the associated RPC node. Each validator
 # may serve at most one RPC node.
 rpc_access_port = "<RPC_ACCESS_PORT>" # TODO: This must be an integer when populating the template

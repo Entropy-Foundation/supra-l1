@@ -38,14 +38,8 @@ bind_addr = "0.0.0.0:<RPC_ACCESS_PORT>"
 block_provider_is_trusted = false
 # The access tokens used to authenticate public requests to this RPC node for consensus data.
 consensus_access_tokens = []
-# If true, all components will attempt to load their previous state from disk. Otherwise,
-# all components will start in their default state. Should always be `true` for testnet and
-# mainnet.
-resume = true
 # The path to `supra_committees.json`.
 supra_committees_config = "./supra_committees.json"
-# The number of seconds to wait before retrying a block sync request.
-sync_retry_interval_in_secs = 1
 
 [chain_state_assembler]
 # Number of certified blocks stored in memory as reference to pending blocks to be executed.

@@ -11,7 +11,7 @@ A Supra node is configured through **two** TOML files:
 | File | Purpose |
 |------|---------|
 | `smr_settings.toml` | Per-node runtime settings: networking, database, transaction backlog, profiling, execution hooks. These settings are local to each node operator and may differ between nodes. |
-| `genesis_params.toml` | Network-wide genesis parameters: chain identity, consensus, mempool, DKG, commitments, MoveVM economics, automation, and leader ban registry. These parameters must be agreed upon by all validators during the Genesis ceremony. |
+| `genesis_parameters.toml` | Network-wide genesis parameters: chain identity, consensus, mempool, DKG, commitments, MoveVM economics, automation, and leader ban registry. These parameters must be agreed upon by all validators during the Genesis ceremony. |
 
 Both files are expected to be located in the node's home directory (typically `$SUPRA_HOME`).
 
@@ -29,7 +29,7 @@ Both files are expected to be located in the node's home directory (typically `$
     - [\[executor\_hook\_config\]](#executor_hook_config)
     - [`prometheus_exporter_port`](#prometheus_exporter_port)
     - [Complete smr\_settings.toml Example](#complete-smr_settingstoml-example)
-  - [genesis\_params.toml](#genesis_paramstoml)
+  - [genesis\_parameters.toml](#genesis_parameterstoml)
     - [\[instance\]](#instance)
     - [\[moonshot\]](#moonshot)
     - [\[mempool\]](#mempool)
@@ -39,7 +39,7 @@ Both files are expected to be located in the node's home directory (typically `$
     - [\[automation\]](#automation)
       - [V2 Parameters](#v2-parameters)
     - [\[leader\_ban\_registry\]](#leader_ban_registry)
-    - [Complete genesis\_params.toml Example](#complete-genesis_paramstoml-example)
+    - [Complete genesis\_parameters.toml Example](#complete-genesis_parameterstoml-example)
 
 ---
 
@@ -105,6 +105,11 @@ epochs_to_retain = 2
 ### [node.ws_server]
 
 Configures the WebSocket server used for RPC node synchronization.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `termination_policy` | table/string | `"ignore_failed"` | Policy governing whether a WebSocket connection to a downstream RPC node is terminated after repeated failed transmissions. Either `"ignore_failed"` (never terminate) or `{ terminate_after = <n> }` to terminate after `n` failed messages. Optional. |
+| `transaction_forward_channel_capacity` | integer | `102400` | Capacity of the per-connection channel buffering outbound sync messages (certified blocks, transaction-inclusion certificates, committee authorizations) to a downstream RPC node. Messages are dropped when the buffer is full. Optional. |
 
 **[node.ws_server.certificates]** — TLS certificates for the WebSocket server:
 
@@ -232,7 +237,7 @@ prometheus_exporter_port = 9000
 
 ---
 
-## genesis_params.toml
+## genesis_parameters.toml
 
 The consolidated Genesis parameters file. It contains all network-wide parameters that must be agreed upon by all validators during the Genesis ceremony. After Genesis, most of these parameters can only be updated via governance actions.
 
@@ -508,7 +513,7 @@ probation_elections = 5
 
 ---
 
-### Complete genesis_params.toml Example
+### Complete genesis_parameters.toml Example
 
 ```toml
 [instance]
