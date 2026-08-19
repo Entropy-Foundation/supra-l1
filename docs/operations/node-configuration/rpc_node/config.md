@@ -17,6 +17,7 @@ This document explains how to configure a Supra RPC node using the `config.toml`
     - [Database Setup](#database-setup)
       - [\[database\_setup.dbs.archive.rocks\_db\]](#database_setupdbsarchiverocks_db)
       - [\[database\_setup.dbs.chain\_store.rocks\_db\]](#database_setupdbschain_storerocks_db)
+      - [\[database\_setup.dbs.ledger.rocks\_db\]](#database_setupdbsledgerrocks_db)
       - [\[database\_setup.prune\_config\]](#database_setupprune_config)
     - [HTTP Server](#http-server)
     - [Faucet Settings](#faucet-settings)
@@ -114,6 +115,12 @@ Stores the blockchain data.
 - `enable_pruning` (bool): If `true`, old data is pruned based on `epochs_to_retain`.
 - `enable_snapshots` (bool): If `true`, enables periodic database snapshots.
 
+#### [database_setup.dbs.ledger.rocks_db]
+Stores DKG (Distributed Key Generation) and ledger data.
+- `path` (string): Filesystem path for the ledger DB (e.g., `./configs/rpc_ledger`).
+- `enable_pruning` (bool): If `true`, old data is pruned based on `epochs_to_retain`.
+- `enable_snapshots` (bool): If `true`, enables periodic database snapshots.
+
 #### [database_setup.prune_config]
 Controls pruning for all databases where pruning is enabled.
 - `epochs_to_retain` (integer): Number of epochs of data to retain. For example, `1008` epochs is about 3 months if an epoch is 2 hours.
@@ -128,6 +135,11 @@ enable_snapshots = false
 [database_setup.dbs.chain_store.rocks_db]
 path = "./configs/rpc_store"
 enable_pruning = true
+enable_snapshots = false
+
+[database_setup.dbs.ledger.rocks_db]
+path = "./configs/rpc_ledger"
+enable_pruning = false
 enable_snapshots = false
 
 [database_setup.prune_config]
@@ -236,7 +248,7 @@ Interval.nanos = 0
 [limiting_strategy]
 ExponentialBackoff.secs = 5
 ExponentialBackoff.nanos = 0
-ExponentialBackoff.factor = 2.0
+ExponentialBackoff.factor = 0.8
 ```
 
 ### CORS / Allowed Origins
@@ -327,7 +339,7 @@ output_dir = "./hook_output"
 
 **chain_state_assembler**: Advanced. Controls how the node assembles and manages the chain state. Most users should not modify this section. Options:
 - `certified_block_cache_bucket_size` (integer): Number of certified blocks to keep in memory for reference to pending blocks. Default: 50.
-- `sync_retry_interval_in_secs` (integer): How often (in seconds) to retry failed sync requests. Default: 5.
+- `sync_retry_interval_in_secs` (integer): How often (in seconds) to retry failed sync requests. Default: 1.
 
 **Example:**
 ```toml
@@ -336,7 +348,7 @@ certified_block_cache_bucket_size = 50
 sync_retry_interval_in_secs = 1
 ```
 
-**max_view_function_gas_amount**: Sets the maximum gas allowed for view (read-only) function execution. Increase or decrease to control resource usage for queries. *(integer, default: unlimited)*
+**max_view_function_gas_amount**: Sets the maximum gas allowed for view (read-only) function execution. Increase or decrease to control resource usage for queries. *(integer, default: 2000000000)*
 
 **profiling**: (Optional) Enables a profiling server for performance diagnostics. Only enable if you are debugging or profiling the node. Options:
 - `enabled` (bool): Whether to enable the profiling server. Default: false.
@@ -356,8 +368,6 @@ port = 9876
 **prometheus_exporter_port**: (Optional) Port for exposing Prometheus metrics for monitoring. *(integer, default: 9000)*
 
 **max_certificates_in_backlog**: (Optional) Maximum number of transaction certificates the backlog may hold ahead of the last verified block height. For example, with a value of `1000` and a latest stored certificate height of `200`, certificates above height `1200` are rejected. *(integer, default: 1000)*
-
-**internal_channel_capacity**: (Optional) Capacity of the internal channels that buffer synchronized data (blocks, committee authorizations, transaction-inclusion certificates) between the sync client and the node's processing pipeline. If omitted, defaults to `1024`. *(integer, optional)*
 
 ---
 
@@ -398,6 +408,11 @@ enable_snapshots = false
 [database_setup.dbs.chain_store.rocks_db]
 path = "./configs/rpc_store"
 enable_pruning = true
+enable_snapshots = false
+
+[database_setup.dbs.ledger.rocks_db]
+path = "./configs/rpc_ledger"
+enable_pruning = false
 enable_snapshots = false
 
 [database_setup.prune_config]

@@ -1,0 +1,113 @@
+# Observability stack for Supra nodes: Grafana, Mimir (metrics), Loki (logs),
+# Tempo (traces), and Alloy (collector).
+#
+# Before starting, edit alloy/config.alloy to point at your nodes. Then:
+#
+#   podman-compose -f observability/compose.yml up -d      # or: docker compose
+#
+# Grafana comes up on http://localhost:3000 with the Supra dashboards provisioned.
+# The default credentials below are for a stack reachable only from your own
+# machine. Change them, or put the stack behind an authenticating proxy, before
+# exposing it to a network.
+
+services:
+  grafana:
+    image: docker.io/grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3000/healthz" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./dashboards:/supra/dashboards
+    depends_on:
+      - mimir
+      - loki
+      - tempo
+    networks:
+      - supra-observability
+
+  alloy:
+    image: docker.io/grafana/alloy:latest
+    container_name: alloy
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy_data:/var/lib/alloy/data
+      # Node log directories. See "EDIT ME (2/2)" in alloy/config.alloy.
+      - ./logs:/var/log/supra:ro
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=0.0.0.0:12345
+    ports:
+      - "12345:12345"   # Alloy UI
+      - "4317:4317"     # OTLP gRPC in
+      - "4318:4318"     # OTLP HTTP in
+    depends_on:
+      - mimir
+      - loki
+      - tempo
+    networks:
+      - supra-observability
+
+  mimir:
+    image: docker.io/grafana/mimir:latest
+    container_name: mimir
+    command: -config.file=/etc/mimir/config.yml
+    volumes:
+      - ./mimir.yml:/etc/mimir/config.yml:ro
+      - mimir_data:/data
+    ports:
+      - "9009:9009"
+    networks:
+      - supra-observability
+
+  loki:
+    image: docker.io/grafana/loki:latest
+    container_name: loki
+    command: -config.file=/etc/loki/config.yml
+    volumes:
+      - ./loki.yml:/etc/loki/config.yml:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - supra-observability
+
+  tempo:
+    image: docker.io/grafana/tempo:latest
+    container_name: tempo
+    command:
+      - "-config.file=/etc/tempo/config.yml"
+      - "-storage.trace.backend=local"
+      - "-storage.trace.local.path=/tmp/tempo/traces"
+      - "-storage.trace.wal.path=/tmp/tempo/wal"
+      - "-auth.enabled=false"
+      - "-server.http-listen-port=3200"
+    volumes:
+      - ./tempo.yml:/etc/tempo/config.yml:ro
+      - tempo_data:/var/tempo
+    ports:
+      - "3200:3200"
+    networks:
+      - supra-observability
+
+networks:
+  supra-observability:
+    driver: bridge
+
+volumes:
+  alloy_data:
+  grafana_data:
+  loki_data:
+  tempo_data:
+  mimir_data:

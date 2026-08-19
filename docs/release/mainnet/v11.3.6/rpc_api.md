@@ -1,6 +1,6 @@
-# REST API — v11.3.4 Release Notes
+# REST API Change Log
 
-Changes to node configuration files since `supra_node_v10.0.8`.
+Changes to the RPC node API since `supra_node_v10.0.8`.
 
 ## New Endpoints
 

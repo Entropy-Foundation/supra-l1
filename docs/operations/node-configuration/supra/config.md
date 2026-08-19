@@ -22,6 +22,7 @@ Both files are expected to be located in the node's home directory (typically `$
   - [Table of Contents](#table-of-contents)
   - [smr\_settings.toml](#smr_settingstoml)
     - [\[node\]](#node)
+      - [Sizing `dkg_thread_pool_size`](#sizing-dkg_thread_pool_size)
     - [\[node.database\_setup\]](#nodedatabase_setup)
     - [\[node.ws\_server\]](#nodews_server)
     - [\[node.backlog\_parameters\]](#nodebacklog_parameters)
@@ -56,7 +57,33 @@ Top-level node parameters.
 | `connection_refresh_timeout_sec` | integer | `20` | Interval (in seconds) at which the node verifies its connectivity to other nodes. |
 | `rpc_access_port` | integer | `26000` | The listening port on the validator node for RPC requests. |
 | `is_transaction_provider_trusted` | boolean | `false` | If `true`, the node will not validate transactions received directly. Validation still occurs during consensus voting and execution. Set to `false` unless you fully trust the transaction provider. |
-| `dkg_thread_pool_size` | integer | *number of physical CPU cores* | Maximum number of threads used for compute-heavy DKG operations. Defaults to the number of physical CPU cores on the machine. |
+| `dkg_thread_pool_size` | integer | *number of physical CPU cores* | Number of threads used for compute-heavy DKG operations, chiefly verifying the dealings broadcast by other validators at an epoch boundary. Must be at least `1`; the node refuses to start on `0`. Values above the host's logical core count are clamped to it, with a warning in the log. See the note below before changing it. |
+
+#### Sizing `dkg_thread_pool_size`
+
+This pool is not the node's only CPU consumer, and the three are sized independently — their
+sum can exceed the host's core count:
+
+| Pool | Sized by | Threads |
+|---|---|---|
+| DKG verification pool | `dkg_thread_pool_size` | physical cores, by default |
+| Async runtime (Tokio) | not configurable | logical cores |
+| Move execution pool | not configurable | logical cores |
+
+The DKG pool is idle for most of an epoch and then saturates during the epoch transition:
+every dealer broadcasts at once, so the whole batch of dealing verifications queues at
+once and occupies every worker for seconds, competing with block execution on the same
+cores. The larger the validator set, the more verifications land in that burst.
+
+Guidance:
+
+- **One validator per host, cores to spare:** leave the field out. The physical-core default
+  finishes the burst fastest.
+- **Host shared with an RPC node, or a small/hyperthreaded machine:** set it below the
+  physical core count (for example half) to leave headroom for block execution during the
+  epoch transition. The DKG takes longer but does not stall the executor.
+- **Several validators on one host (development only):** divide the physical cores between
+  them, since they all transition at the same time.
 
 **Example:**
 ```toml
@@ -105,11 +132,6 @@ epochs_to_retain = 2
 ### [node.ws_server]
 
 Configures the WebSocket server used for RPC node synchronization.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `termination_policy` | table/string | `"ignore_failed"` | Policy governing whether a WebSocket connection to a downstream RPC node is terminated after repeated failed transmissions. Either `"ignore_failed"` (never terminate) or `{ terminate_after = <n> }` to terminate after `n` failed messages. Optional. |
-| `transaction_forward_channel_capacity` | integer | `102400` | Capacity of the per-connection channel buffering outbound sync messages (certified blocks, transaction-inclusion certificates, committee authorizations) to a downstream RPC node. Messages are dropped when the buffer is full. Optional. |
 
 **[node.ws_server.certificates]** — TLS certificates for the WebSocket server:
 
@@ -345,14 +367,14 @@ Configures the Distributed Key Generation (DKG) protocol, which is responsible f
 |-----------|------|---------|-------------|
 | `dealing_signature_collection_timeout_ms` | integer | `3000` | Time (in milliseconds) that a dealer waits to receive extra signatures on their dealing before proceeding. |
 | `data_retention_epochs` | integer | `3` | Number of epochs to retain DKG data in the database for node syncing purposes. Consensus can currently only start syncing from the start of the previous epoch. |
-| `dkg_timeout_ms` | integer | `100000` | Overall DKG process timeout (in milliseconds). If this timeout is hit, the DKG process will restart to try and make progress. |
+| `dkg_timeout_ms` | integer | `300000` | Overall DKG process timeout (in milliseconds). If this timeout is hit, the DKG process will restart to try and make progress. |
 
 **Example:**
 ```toml
 [dkg]
 dealing_signature_collection_timeout_ms = 3000
 data_retention_epochs = 3
-dkg_timeout_ms = 100000
+dkg_timeout_ms = 300000
 ```
 
 ---
@@ -379,7 +401,7 @@ Configures the MoveVM staking, governance, and economics parameters used during 
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `min_stake` | integer | `0` | Minimum stake (in Quants, where 1 SUPRA = 10^8 Quants) required to run a validator. Set to 0 at genesis because The Foundation's stake is added after pool creation; intended to be increased to 55M SUPRA via governance. |
+| `min_stake` | integer | `0` | Minimum stake (in Quants, where 1 SUPRA = 10^8 Quants) required to run a validator. Set to 0 at genesis because The Foundation's stake is added after pool creation; intended to be increased to 55M SUPRA via governance. A governance change takes effect at the start of the next epoch, not immediately, and the minimum is compared against a validator's staked balance alone — pending rewards do not count towards it. |
 | `max_stake` | string | `"10000000000000000000"` | Maximum stake a validator can possess. Serialized as a string due to a limitation in the TOML crate with values larger than `i64::MAX`. |
 | `validator_commission_rate_percentage` | integer | `3774` | Commission rate for validators, specified as a percentage with 2 decimals of precision (e.g., `3774` = 37.74%). |
 | `voting_power_increase_limit` | integer | `33` | Maximum voting power increase limit for governance after every epoch. |
@@ -544,7 +566,7 @@ sync_retry_nodes = 3
 [dkg]
 dealing_signature_collection_timeout_ms = 3000
 data_retention_epochs = 3
-dkg_timeout_ms = 100000
+dkg_timeout_ms = 300000
 
 [commitments]
 proposal_retry_delay_ms = 500

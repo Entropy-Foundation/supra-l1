@@ -1,4 +1,4 @@
-# Node Configuration — v11.3.4 Release Notes
+# Node Configuration Change Log
 
 Changes to node configuration files since `supra_node_v10.0.8`.
 

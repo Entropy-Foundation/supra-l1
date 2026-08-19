@@ -1,0 +1,26 @@
+# Minimal Tempo configuration for the local observability stack.
+#
+# The container's command-line flags (see compose.infrastructure.yml) already set the HTTP
+# listen port and local trace storage paths. This file supplies the distributor's OTLP
+# receivers, which cannot be set via flags, so that Alloy can push spans to `tempo:4317`.
+stream_over_http_enabled: true
+
+server:
+  http_listen_port: 3200
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "0.0.0.0:4317"
+        http:
+          endpoint: "0.0.0.0:4318"
+
+storage:
+  trace:
+    backend: local
+    wal:
+      path: /tmp/tempo/wal
+    local:
+      path: /tmp/tempo/traces

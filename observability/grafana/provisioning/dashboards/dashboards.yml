@@ -1,0 +1,17 @@
+apiVersion: 1
+
+# Provisions the Supra dashboards into a "Supra" folder in Grafana.
+# The dashboard JSON in ../../dashboards/json is mounted at /supra/dashboards by
+# compose.yml, keeping the dashboard assets separate from this provisioning config.
+providers:
+  - name: supra
+    orgId: 1
+    folder: Supra
+    type: file
+    allowUiUpdates: true
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 10
+    options:
+      path: /supra/dashboards/json
+      foldersFromFilesStructure: false

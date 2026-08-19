@@ -1,10 +1,14 @@
-# Supra Framework — v11.3.4 Release Notes
+# Supra Framework Change Log
 
 Changes to the Supra Move framework and gas schedule since `aptosvm-v1.16_supra-v1.7.28`.
 
+This release ships framework tag `aptosvm-v1.16_supra-v1.8.9`. The thematic sections below
+(feature flags, modules, gas schedule) describe the aggregate change through
+`aptosvm-v1.16_supra-v1.8.6`; the tag-headed sections describe what each later tag added.
+
 ---
 
-## `aptosvm-v1.16_supra-v1.8.8`
+## `aptosvm-v1.16_supra-v1.8.6`
 
 ### `stake.move`
 
@@ -171,3 +175,65 @@ New parameters for the `class_groups` native functions:
 | `class_groups.per_pubkey_deserialize.base` | 400,684 internal gas per arg |
 | `class_groups.pop.base` | 206,000,000 internal gas |
 
+---
+
+## `aptosvm-v1.16_supra-v1.8.7`
+
+### `stake.move`
+
+**Behavioral change: validators still holding a legacy key are ejected from the active set.** Two
+new helpers, `is_unrotated_legacy_key` and `is_eligible_active_validator`, are applied identically
+when previewing the next validator set (`compute_next_validator_set_internal`) and when committing
+it (`on_new_epoch`). A validator is retained only if it meets the minimum stake **and**, once the
+validator-identity v2 format is enforced (feature `SUPRA_BLS_KEYS`, flag 97), still carries a v2
+consensus key rather than a bare ed25519 key.
+
+Operator impact: a validator that never rotated to a v2 consensus key before v2 was enforced is
+dropped from the active set at the next epoch transition — the same effect as falling below the
+minimum stake — and becomes `INACTIVE` while retaining its stake. Recovery is
+`rotate_consensus_key` with a v2 key followed by `join_validator_set`; see
+`aptosvm-v1.16_supra-v1.8.9` below, which is what makes that rotation succeed.
+
+Applying the same test in both places keeps the DKG receiver committee and `set_dkg_output_keys`
+(which read the preview) consistent with the committed consensus committee, and keeps
+`validator_index` contiguous.
+
+> **Confirm every validator has rotated to a v2 identity before the v2 format is enforced.** Those
+> that have not are ejected at the following epoch transition.
+
+---
+
+## `aptosvm-v1.16_supra-v1.8.8`
+
+### `supra_std::eth_trie`
+
+**New constant.** `ETH_TRIE_ROOT_HASH_LENGTH = 32` — the required length of a trie root hash
+(keccak256 / H256).
+
+**Behavioral change.** `verify_eth_trie_inclusion_proof` and `verify_eth_trie_exclusion_proof` now
+return "invalid proof" — `(false, vector[])` and `false` respectively — for a root that is not
+exactly 32 bytes, before reaching the native. A wrong-length root cannot match any trie node, so it
+is not a valid proof. These APIs remain gated on the existing `SUPRA_ETH_TRIE` feature flag.
+
+### `native_verify_proof_eth_trie`
+
+**Behavioral change.** The native returns `(false, vector[])` when the supplied root is not exactly
+32 bytes, and when building the in-memory proof database fails. The `unwrap` on the database insert
+was removed. A root of any other length is treated as an invalid proof rather than reaching code
+that requires exactly 32 bytes.
+
+---
+
+## `aptosvm-v1.16_supra-v1.8.9`
+
+### `stake.move`
+
+**Behavioral change: an ejected validator can migrate its legacy key and rejoin.**
+`rotate_consensus_key` now skips the DKG threshold-key merge when the *stored* key is an unrotated
+legacy key, storing the incoming v2 blob verbatim instead.
+
+This is what completes the recovery path opened by the ejection in `aptosvm-v1.16_supra-v1.8.7`:
+the migration rotation previously aborted while trying to parse the stored legacy ed25519 key as a
+`ValidatorPublicKeys` blob in order to merge threshold keys into it. An ejected validator can now
+rotate to a v2 consensus key and call `join_validator_set`, rejoining the active set at the next
+epoch transition with its stake intact.
