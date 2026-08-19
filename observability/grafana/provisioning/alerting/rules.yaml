@@ -1,0 +1,659 @@
+apiVersion: 1
+
+# SLO alert rules for the Supra node dashboards. All rules query the Mimir
+# datasource (uid: mimir) and carry the team=supra-node label so policies.yaml
+# routes them to the configured contact point.
+#
+# Thresholds marked TODO(baseline) are conservative placeholders. Set them from
+# your own observed baselines before relying on these rules; see README.md in
+# this directory for what each one means and how to tune it.
+#
+# Metric-availability notes:
+#   - The EVM execution histogram only exists on builds with EVM support that
+#     are executing EVM transactions, so that rule treats NoData as OK.
+#   - supra_rpc_messages_dropped_total, like every counter, is absent from the
+#     exposition until first incremented — a healthy node has no series at all,
+#     so that rule MUST keep noDataState: OK.
+groups:
+  - orgId: 1
+    name: supra-slo
+    folder: Supra Alerts
+    interval: 1m
+    rules:
+      # --------------------------------------------------------------------------
+      # 1. Epoch not advancing
+      #    supra_lifecycle_epoch_current is a monotonically increasing gauge. If it
+      #    has not changed at all over the lookback window the chain is likely
+      #    stalled. The [125m] window is a literal PromQL duration: Grafana does NOT
+      #    interpolate environment variables in alerting provisioning files, so edit
+      #    it here directly (in both the expr and the description below).
+      #    NOTE: it MUST be larger than your maximum expected epoch duration,
+      #    otherwise this fires during normal long epochs.
+      # --------------------------------------------------------------------------
+      - uid: supra_epoch_not_advancing
+        title: Epoch not advancing
+        condition: C
+        for: 5m
+        noDataState: Alerting
+        execErrState: Error
+        labels:
+          severity: critical
+          team: supra-node
+        annotations:
+          summary: Epoch has not advanced on {{ $labels.instance }}
+          description: >
+            supra_lifecycle_epoch_current has not changed in the last 125m on
+            instance {{ $labels.instance }}. The node may have lost liveness
+            (stalled consensus). NoData also triggers this alert (node down /
+            not scraped).
+        data:
+          - refId: A
+            relativeTimeRange:
+              # Headroom above the [125m] selector below (instant queries resolve
+              # the range selector server-side, but keep this generous).
+              from: 14400
+              to: 0
+            datasourceUid: mimir
+            model:
+              datasource:
+                type: prometheus
+                uid: mimir
+              editorMode: code
+              # changes() == 0  =>  epoch value never moved in the window.
+              expr: changes(supra_lifecycle_epoch_current{instance=~".+"}[125m])
+              instant: true
+              intervalMs: 1000
+              legendFormat: '{{instance}}'
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [1]
+                    type: lt          # changes < 1  (i.e. == 0) => fire
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: C
+              type: threshold
+
+      # --------------------------------------------------------------------------
+      # 2. BlockCommitLatencyHigh
+      #    p95 of the per-block commit latency histogram (validators only). The
+      #    metric measures seconds between the BLOCK TIMESTAMP and consensus commit
+      #    (not proposal->commit). Mirrors the query used by the supra-consensus
+      #    dashboard. THRESHOLD: 5 seconds — TODO(baseline).
+      # --------------------------------------------------------------------------
+      - uid: supra_commit_latency_regression
+        title: Commit-latency regression (p95)
+        condition: C
+        for: 10m
+        noDataState: NoData
+        execErrState: Error
+        labels:
+          severity: warning
+          team: supra-node
+        annotations:
+          summary: Commit latency p95 is high on {{ $labels.instance }}
+          description: >
+            p95 of supra_blocks_commit_latency_seconds (validators) has exceeded
+            5s for 10m on instance {{ $labels.instance }} (current value
+            {{ $values.A.Value | printf "%.2f" }}s). Consensus is committing
+            blocks more slowly than expected.
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: mimir
+            model:
+              datasource:
+                type: prometheus
+                uid: mimir
+              editorMode: code
+              expr: >
+                histogram_quantile(0.95, sum by (le, instance) (rate(supra_blocks_commit_latency_seconds_bucket{node_type="validator"}[10m])))
+              instant: true
+              intervalMs: 1000
+              legendFormat: '{{instance}}'
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [5]        # seconds — TODO(baseline)
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: C
+              type: threshold
+
+      # --------------------------------------------------------------------------
+      # 3a. ExecutionLatencyHigh (Move VM)
+      #    p95 of the pure Move-VM per-block execution histogram (validators only),
+      #    so regressions attribute to the Move VM rather than the whole pipeline.
+      #    All latency histograms share LATENCY_BUCKETS_SECONDS (1ms..30s) and
+      #    histogram_quantile saturates at the top bucket, so keep the threshold
+      #    well below 30s. THRESHOLD: 2 seconds — TODO(baseline).
+      # --------------------------------------------------------------------------
+      - uid: supra_move_execution_latency_high
+        title: Move execution-latency regression (p95)
+        condition: C
+        for: 10m
+        noDataState: NoData
+        execErrState: Error
+        labels:
+          severity: warning
+          team: supra-node
+        annotations:
+          summary: Move VM execution latency p95 is high on {{ $labels.instance }}
+          description: >
+            p95 of supra_execution_move_block_execution_seconds (validators) has
+            exceeded 2s for 10m on instance {{ $labels.instance }} (current value
+            {{ $values.A.Value | printf "%.2f" }}s). The Move VM is taking longer
+            than expected to execute a block's transactions.
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: mimir
+            model:
+              datasource:
+                type: prometheus
+                uid: mimir
+              editorMode: code
+              expr: >
+                histogram_quantile(0.95, sum by (le, instance) (rate(supra_execution_move_block_execution_seconds_bucket{node_type="validator"}[10m])))
+              instant: true
+              intervalMs: 1000
+              legendFormat: '{{instance}}'
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [2]        # seconds — TODO(baseline)
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: C
+              type: threshold
+
+      # --------------------------------------------------------------------------
+      # 3b. ExecutionLatencyHigh (EVM)
+      #    Same pattern for the EVM histogram. The series is emitted only by
+      #    evm-feature builds that execute EVM transactions, so NoData is OK
+      #    (a non-EVM deployment must not page). THRESHOLD: 2 seconds —
+      #    TODO(baseline).
+      # --------------------------------------------------------------------------
+      - uid: supra_evm_execution_latency_high
+        title: EVM execution-latency regression (p95)
+        condition: C
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+          team: supra-node
+        annotations:
+          summary: EVM execution latency p95 is high on {{ $labels.instance }}
+          description: >
+            p95 of supra_execution_evm_block_execution_seconds (validators) has
+            exceeded 2s for 10m on instance {{ $labels.instance }} (current value
+            {{ $values.A.Value | printf "%.2f" }}s). The EVM is taking longer
+            than expected to execute a block's transactions.
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: mimir
+            model:
+              datasource:
+                type: prometheus
+                uid: mimir
+              editorMode: code
+              expr: >
+                histogram_quantile(0.95, sum by (le, instance) (rate(supra_execution_evm_block_execution_seconds_bucket{node_type="validator"}[10m])))
+              instant: true
+              intervalMs: 1000
+              legendFormat: '{{instance}}'
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [2]        # seconds — TODO(baseline)
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: C
+              type: threshold
+
+      # --------------------------------------------------------------------------
+      # 4. TPSFloor
+      #    Executed-transaction rate on validators, qualified by a non-empty
+      #    mempool backlog: an idle chain is not an incident, so the rule only
+      #    considers instances that have transactions waiting. noDataState MUST be
+      #    OK — on a healthy idle chain the backlog qualifier filters every series
+      #    out. THRESHOLD: < 1 tx/s — TODO(baseline): set well below the observed
+      #    nightly baseline once trend data accumulates.
+      # --------------------------------------------------------------------------
+      - uid: supra_tps_floor
+        title: TPS below floor
+        condition: C
+        for: 15m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+          team: supra-node
+        annotations:
+          summary: Throughput below floor on {{ $labels.instance }}
+          description: >
+            The executed-transaction rate on instance {{ $labels.instance }} has
+            been below 1 tx/s for 15m while the mempool backlog is non-empty
+            (current rate {{ $values.A.Value | printf "%.2f" }} tx/s). The chain
+            is processing transactions more slowly than they arrive.
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: mimir
+            model:
+              datasource:
+                type: prometheus
+                uid: mimir
+              editorMode: code
+              # Rate only surfaces for instances whose backlog is non-empty; an
+              # idle chain produces no series (hence noDataState: OK above).
+              expr: >
+                rate(supra_transactions_executed_total{node_type="validator"}[5m]) and on (instance) (supra_mempool_backlog_transactions_current > 0)
+              instant: true
+              intervalMs: 1000
+              legendFormat: '{{instance}}'
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [1]        # tx/s — TODO(baseline)
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: C
+              type: threshold
+
+      # --------------------------------------------------------------------------
+      # 5. MempoolBacklogGrowing
+      #    deriv() of the backlog gauge estimates its per-second slope. A sustained
+      #    positive slope means the backlog is filling faster than it drains.
+      #    A lower-noise alternative if this proves flappy:
+      #    rate(supra_mempool_backlog_entries_added_total[15m])
+      #      > rate(supra_mempool_backlog_entries_removed_total[15m]).
+      #    THRESHOLD: slope > 0 sustained for 30m.
+      # --------------------------------------------------------------------------
+      - uid: supra_mempool_backlog_growth
+        title: Mempool backlog growth
+        condition: C
+        for: 30m
+        noDataState: NoData
+        execErrState: Error
+        labels:
+          severity: warning
+          team: supra-node
+        annotations:
+          summary: Mempool backlog is growing on {{ $labels.instance }}
+          description: >
+            supra_mempool_backlog_transactions_current has been steadily
+            increasing for 30m on instance {{ $labels.instance }} (slope
+            {{ $values.A.Value | printf "%.2f" }} txns/s). The mempool is
+            accumulating transactions faster than they are being finalized.
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1200
+              to: 0
+            datasourceUid: mimir
+            model:
+              datasource:
+                type: prometheus
+                uid: mimir
+              editorMode: code
+              expr: deriv(supra_mempool_backlog_transactions_current{instance=~".+"}[15m])
+              instant: true
+              intervalMs: 1000
+              legendFormat: '{{instance}}'
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [0]        # slope > 0 txns/s — TUNE if noisy
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: C
+              type: threshold
+
+      # --------------------------------------------------------------------------
+      # 6. RocksDBWriteStall
+      #    supra_rocksdb_write_stall_active_current is 1 while a database's write
+      #    controller is stopping or delaying writes. Stalls block the write path,
+      #    so this is critical. The db label is kept so the notification names the
+      #    stalled instance (chain_db vs archive etc.).
+      # --------------------------------------------------------------------------
+      - uid: supra_rocksdb_write_stall
+        title: RocksDB write stall
+        condition: C
+        for: 5m
+        noDataState: NoData
+        execErrState: Error
+        labels:
+          severity: critical
+          team: supra-node
+        annotations:
+          summary: RocksDB write stall on {{ $labels.instance }} ({{ $labels.db }})
+          description: >
+            supra_rocksdb_write_stall_active_current has reported an active write
+            stall for 5m on database {{ $labels.db }} of instance
+            {{ $labels.instance }}. RocksDB is stopping or delaying writes,
+            which blocks the node's write path.
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: mimir
+            model:
+              datasource:
+                type: prometheus
+                uid: mimir
+              editorMode: code
+              expr: max by (instance, db) (supra_rocksdb_write_stall_active_current)
+              instant: true
+              intervalMs: 1000
+              legendFormat: '{{instance}}/{{db}}'
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [0]        # stall gauge > 0 => fire
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: C
+              type: threshold
+
+      # --------------------------------------------------------------------------
+      # 7. RocksDBCompactionDebt
+      #    Estimated bytes pending compaction, summed across column families per
+      #    database. Sustained debt precedes write stalls. Thresholds should
+      #    eventually differ per db; start with one conservative global value.
+      #    THRESHOLD: 10 GiB (10737418240 bytes) — TODO(baseline).
+      # --------------------------------------------------------------------------
+      - uid: supra_rocksdb_compaction_debt
+        title: RocksDB compaction debt
+        condition: C
+        for: 15m
+        noDataState: NoData
+        execErrState: Error
+        labels:
+          severity: warning
+          team: supra-node
+        annotations:
+          summary: RocksDB compaction debt on {{ $labels.instance }} ({{ $labels.db }})
+          description: >
+            Pending compaction bytes on database {{ $labels.db }} of instance
+            {{ $labels.instance }} have exceeded 10GiB for 15m (current value
+            {{ $values.A.Value | printf "%.0f" }} bytes). Compaction is falling
+            behind the write rate; a write stall may follow.
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: mimir
+            model:
+              datasource:
+                type: prometheus
+                uid: mimir
+              editorMode: code
+              expr: sum by (instance, db) (supra_rocksdb_pending_compaction_bytes_current)
+              instant: true
+              intervalMs: 1000
+              legendFormat: '{{instance}}/{{db}}'
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [10737418240]   # bytes (10 GiB) — TODO(baseline)
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: C
+              type: threshold
+
+      # --------------------------------------------------------------------------
+      # 8. RSSGrowth
+      #    Resident-set-size growth over 6h. process_resident_memory_bytes is a
+      #    GAUGE, so delta() is used (increase() is counters-only). Catches slow
+      #    leaks that per-instant thresholds miss. Applies to validators and RPC
+      #    nodes alike. THRESHOLD: 2 GiB / 6h (2147483648 bytes) — TODO(baseline).
+      # --------------------------------------------------------------------------
+      - uid: supra_rss_growth
+        title: Process RSS growth
+        condition: C
+        for: 30m
+        noDataState: NoData
+        execErrState: Error
+        labels:
+          severity: warning
+          team: supra-node
+        annotations:
+          summary: Resident memory growing on {{ $labels.instance }}
+          description: >
+            process_resident_memory_bytes on instance {{ $labels.instance }} has
+            grown by more than 2GiB over the last 6h (delta
+            {{ $values.A.Value | printf "%.0f" }} bytes). The process may be
+            leaking memory.
+        data:
+          - refId: A
+            relativeTimeRange:
+              # Headroom above the [6h] selector below.
+              from: 25200
+              to: 0
+            datasourceUid: mimir
+            model:
+              datasource:
+                type: prometheus
+                uid: mimir
+              editorMode: code
+              expr: delta(process_resident_memory_bytes{instance=~".+"}[6h])
+              instant: true
+              intervalMs: 1000
+              legendFormat: '{{instance}}'
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [2147483648]    # bytes (2 GiB per 6h) — TODO(baseline)
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: C
+              type: threshold
+
+      # --------------------------------------------------------------------------
+      # 9. RPCMessagesDropped
+      #    Any sustained non-zero drop rate is an incident. The context label names
+      #    the drop site. supra_rpc_messages_dropped_total, like all metrics-crate
+      #    counters, does not appear in the exposition until first incremented —
+      #    noDataState MUST stay OK or this fires on every healthy node.
+      # --------------------------------------------------------------------------
+      - uid: supra_rpc_messages_dropped
+        title: RPC messages dropped
+        condition: C
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+          team: supra-node
+        annotations:
+          summary: RPC messages dropped on {{ $labels.instance }} ({{ $labels.context }})
+          description: >
+            supra_rpc_messages_dropped_total has been increasing for 5m on
+            instance {{ $labels.instance }} at drop site {{ $labels.context }}
+            (rate {{ $values.A.Value | printf "%.2f" }} msg/s). The RPC node is
+            shedding messages.
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: mimir
+            model:
+              datasource:
+                type: prometheus
+                uid: mimir
+              editorMode: code
+              expr: sum by (instance, context) (rate(supra_rpc_messages_dropped_total[5m]))
+              instant: true
+              intervalMs: 1000
+              legendFormat: '{{instance}}/{{context}}'
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [0]        # any sustained drop rate => fire
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: C
+              type: threshold

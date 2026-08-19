@@ -1,0 +1,127 @@
+// Grafana Alloy configuration for collecting telemetry from your own Supra nodes.
+//
+// Alloy does three jobs here:
+//   1. scrapes the Prometheus endpoint each node exposes, and remote-writes to Mimir;
+//   2. tails each node's log files and ships them to Loki;
+//   3. receives OTLP traces from nodes that have OTLP_ENDPOINT set, and forwards them to Tempo.
+//
+// Before starting the stack, edit the two marked blocks below to describe your nodes.
+
+// ---------------------------------------------------------------------------
+// EDIT ME (1/2): the nodes to scrape metrics from.
+//
+// One entry per node. `__address__` is "<host>:<prometheus_exporter_port>"; the port
+// defaults to 9000 and is set by `prometheus_exporter_port` in smr_settings.toml
+// (validator) or config.toml (RPC node). `instance` is the name the dashboards will
+// show, so use something you will recognise.
+//
+// You do not need to label a target as a validator or an RPC node. Every node already
+// tags its own metrics with `node_type` — `validator`, `ws_rpc` or `rest_rpc` — and that
+// is the label the dashboards and alert rules select on. Adding your own role label here
+// would not feed them.
+//
+// If Alloy runs in a container and the node runs on the container host, address the
+// host as "host.containers.internal" (Podman) or "host.docker.internal" (Docker)
+// rather than "localhost".
+// ---------------------------------------------------------------------------
+prometheus.scrape "supra_nodes" {
+  targets = [
+    {"__address__" = "host.containers.internal:9000", "instance" = "my-validator"},
+    // {"__address__" = "host.containers.internal:9100", "instance" = "my-rpc"},
+  ]
+
+  forward_to      = [prometheus.remote_write.mimir.receiver]
+  scrape_interval = "15s"
+  scrape_timeout  = "10s"
+  metrics_path    = "/metrics"
+}
+
+// ---------------------------------------------------------------------------
+// EDIT ME (2/2): the log files to tail.
+//
+// `__path__` is a glob resolved inside the Alloy container. The compose file mounts
+// ./logs to /var/log/supra, so put your nodes' log directories under ./logs (a
+// symlink is fine) or change the mount to point at where they already are.
+// ---------------------------------------------------------------------------
+local.file_match "supra_node_logs" {
+  path_targets = [
+    {"__path__" = "/var/log/supra/*/supra_node_logs/*.log", "job" = "supra", "hostname" = constants.hostname},
+  ]
+  sync_period = "10s"
+}
+
+loki.source.file "supra_node_logs" {
+  targets       = local.file_match.supra_node_logs.targets
+  forward_to    = [loki.write.loki.receiver]
+  tail_from_end = true
+}
+
+// ---------------------------------------------------------------------------
+// Below this line you should not need to change anything.
+// ---------------------------------------------------------------------------
+
+// OTLP receiver. A node only pushes traces here if it is started with
+// OTLP_ENDPOINT pointing at this collector; see the observability docs.
+otelcol.receiver.otlp "supra" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  output {
+    metrics = [otelcol.exporter.prometheus.mimir.input]
+    logs    = [otelcol.exporter.loki.loki.input]
+    traces  = [otelcol.exporter.otlp.tempo.input]
+  }
+}
+
+otelcol.exporter.prometheus "mimir" {
+  forward_to = [prometheus.remote_write.mimir.receiver]
+}
+
+otelcol.exporter.loki "loki" {
+  forward_to = [loki.write.loki.receiver]
+}
+
+otelcol.exporter.otlp "tempo" {
+  client {
+    endpoint = coalesce(sys.env("TEMPO_HOST"), "tempo:4317")
+
+    tls {
+      insecure = true
+    }
+  }
+}
+
+prometheus.remote_write "mimir" {
+  endpoint {
+    url = string.format(
+      "http://%s/api/v1/push",
+      coalesce(sys.env("REMOTE_WRITE_HOST"), "mimir:9009"),
+    )
+  }
+}
+
+loki.write "loki" {
+  endpoint {
+    url = string.format(
+      "http://%s/loki/api/v1/push",
+      coalesce(sys.env("LOKI_HOST"), "loki:3100"),
+    )
+  }
+}
+
+// Alloy's own health metrics, so you can tell collection apart from a node outage.
+prometheus.exporter.self "alloy" {}
+
+prometheus.scrape "alloy" {
+  targets    = prometheus.exporter.self.alloy.targets
+  forward_to = [prometheus.remote_write.mimir.receiver]
+}
+
+logging {
+  level = "info"
+}

@@ -1,0 +1,32 @@
+apiVersion: 1
+
+# Contact point for Supra node alerts.
+#
+# NOTE: Grafana does NOT interpolate environment variables in alerting provisioning
+# files, so the webhook URL must be written here literally (an env var like
+# ${SLACK_WEBHOOK_URL} would be stored verbatim and fail). The placeholder below lets
+# provisioning load cleanly; alerts simply will not be delivered until it is replaced.
+#
+# To wire it up:
+#   1. Create an Incoming Webhook in Slack and copy its URL.
+#   2. Replace the `url:` value below with it (or set it via the Grafana UI:
+#      Alerting -> Contact points -> supra-slack).
+#   3. Restart Grafana so the contact point is re-provisioned.
+contactPoints:
+  - orgId: 1
+    name: supra-slack
+    receivers:
+      - uid: supra_slack_receiver
+        type: slack
+        settings:
+          url: https://hooks.slack.com/services/REPLACE/WITH/REAL/WEBHOOK
+          title: |
+            [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }}
+          text: |
+            {{ range .Alerts -}}
+            *Alert:* {{ .Labels.alertname }} — *{{ .Labels.severity }}*
+            *Instance:* {{ .Labels.instance }}
+            *Summary:* {{ .Annotations.summary }}
+            *Description:* {{ .Annotations.description }}
+            {{ end }}
+        disableResolveMessage: false

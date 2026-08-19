@@ -13,6 +13,18 @@ This repository is the canonical platform for publishing releases of Supra's Val
 The [Supra Move Framework](https://github.com/Entropy-Foundation/aptos-core/tree/dev/aptos-move/framework/supra-framework) and the [Supra AptosVM](https://github.com/Entropy-Foundation/aptos-core/blob/dev/aptos-move/aptos-vm/src/aptos_vm.rs) can be found in [our fork of aptos-core](https://github.com/Entropy-Foundation/aptos-core).
 
 
+## Documentation
+
+* [Mainnet status](./docs/release/mainnet/README.md) — the versions and feature flags live on
+  mainnet today
+* [Release changelogs](./docs/release) — what changed in each mainnet release
+* [Node configuration](./docs/operations/node-configuration) — every field in
+  `smr_settings.toml`, `genesis_parameters.toml`, and the RPC node's `config.toml`,
+  with mainnet templates
+* [Observability](./docs/operations/observability) — collecting metrics, logs, and
+  traces from your nodes, plus a [ready-to-run Grafana stack](./observability)
+  with Supra dashboards and alert rules
+
 ## Getting Started
 
 * [Supra](https://supra.com)

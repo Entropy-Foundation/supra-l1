@@ -1,4 +1,4 @@
-# `supra` CLI — v11.3.4 Release Notes
+# `supra` CLI Change Log
 
 Changes to the `supra` command-line tool since `supra_node_v10.0.8`.
 

@@ -102,6 +102,10 @@ request_latest_height = false
 
 **database_setup**: Configures persistent storage for the node. Each database uses RocksDB and can be tuned for pruning and snapshots.
 
+An RPC node has exactly two storage instances, `chain_store` and `archive`, and both must be
+configured. No other instance name is accepted: an unrecognised key under `database_setup.dbs`
+fails to parse and the node will not start.
+
 #### [database_setup.dbs.archive.rocks_db]
 Stores indexes used to serve RPC API calls.
 - `path` (string): Filesystem path for the archive DB (e.g., `./configs/rpc_archive`).
@@ -236,7 +240,7 @@ Interval.nanos = 0
 [limiting_strategy]
 ExponentialBackoff.secs = 5
 ExponentialBackoff.nanos = 0
-ExponentialBackoff.factor = 2.0
+ExponentialBackoff.factor = 0.8
 ```
 
 ### CORS / Allowed Origins
@@ -327,7 +331,7 @@ output_dir = "./hook_output"
 
 **chain_state_assembler**: Advanced. Controls how the node assembles and manages the chain state. Most users should not modify this section. Options:
 - `certified_block_cache_bucket_size` (integer): Number of certified blocks to keep in memory for reference to pending blocks. Default: 50.
-- `sync_retry_interval_in_secs` (integer): How often (in seconds) to retry failed sync requests. Default: 5.
+- `sync_retry_interval_in_secs` (integer): How often (in seconds) to retry failed sync requests. Default: 1.
 
 **Example:**
 ```toml
@@ -336,7 +340,7 @@ certified_block_cache_bucket_size = 50
 sync_retry_interval_in_secs = 1
 ```
 
-**max_view_function_gas_amount**: Sets the maximum gas allowed for view (read-only) function execution. Increase or decrease to control resource usage for queries. *(integer, default: unlimited)*
+**max_view_function_gas_amount**: Sets the maximum gas allowed for view (read-only) function execution. Increase or decrease to control resource usage for queries. *(integer, default: 2000000000)*
 
 **profiling**: (Optional) Enables a profiling server for performance diagnostics. Only enable if you are debugging or profiling the node. Options:
 - `enabled` (bool): Whether to enable the profiling server. Default: false.
@@ -357,7 +361,11 @@ port = 9876
 
 **max_certificates_in_backlog**: (Optional) Maximum number of transaction certificates the backlog may hold ahead of the last verified block height. For example, with a value of `1000` and a latest stored certificate height of `200`, certificates above height `1200` are rejected. *(integer, default: 1000)*
 
-**internal_channel_capacity**: (Optional) Capacity of the internal channels that buffer synchronized data (blocks, committee authorizations, transaction-inclusion certificates) between the sync client and the node's processing pipeline. If omitted, defaults to `1024`. *(integer, optional)*
+**internal_channel_capacity**: (Optional) Capacity of the internal channels that buffer synchronized data — blocks, committee authorizations and transaction-inclusion certificates — between the sync client and the node's processing pipeline. Omit to use the default. *(integer, default: 1024)*
+
+**tokio_console_port**: (Optional) TCP port for the async-runtime `tokio-console` subscriber, bound on localhost. When omitted, an ephemeral port is chosen at startup. Set it explicitly to reach the console on a known port, and to avoid a startup port-collision race on hosts running many node processes. *(integer, optional)*
+
+**tcp_console_port**: (Optional) TCP port for the node's `tcp_console` admin console — log-filter reload and on-demand database dump — bound on localhost. When omitted, an ephemeral port is chosen at startup. *(integer, optional)*
 
 ---
 

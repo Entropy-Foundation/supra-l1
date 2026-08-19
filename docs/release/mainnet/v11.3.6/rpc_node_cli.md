@@ -1,4 +1,4 @@
-# `rpc_node` CLI — v11.3.4 Release Notes
+# `rpc_node` CLI Change Log
 
 Changes to the `rpc_node` command-line tool since `supra_node_v10.0.8`.
 
