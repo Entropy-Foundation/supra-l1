@@ -29,6 +29,8 @@ Both files are expected to be located in the node's home directory (typically `$
     - [\[profiling\]](#profiling)
     - [\[executor\_hook\_config\]](#executor_hook_config)
     - [`prometheus_exporter_port`](#prometheus_exporter_port)
+    - [Console ports](#console-ports)
+    - [\[p2p\_auth\]](#p2p_auth)
     - [Complete smr\_settings.toml Example](#complete-smr_settingstoml-example)
   - [genesis\_parameters.toml](#genesis_parameterstoml)
     - [\[instance\]](#instance)
@@ -149,6 +151,25 @@ cert_path = "/node/server_supra_certificate.pem"
 private_key_path = "/node/server_supra_key.pem"
 ```
 
+Two optional parameters sit directly under `[node.ws_server]`:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `transaction_forward_channel_capacity` | integer | `102400` | Capacity of the per-connection channel buffering outbound sync messages (certified blocks, transaction-inclusion certificates, committee authorizations) to a downstream RPC node. Messages are **dropped** when the buffer is full, so size it for the expected sync fan-out. |
+| `termination_policy` | see below | `ignore_failed` | Whether to close a WebSocket connection after repeated failed transmissions. |
+
+`termination_policy` takes one of two forms:
+
+```toml
+[node.ws_server]
+termination_policy = "ignore_failed"        # never close on failed sends (default)
+```
+
+```toml
+[node.ws_server.termination_policy]
+terminate_after = 100                        # close after this many failed sends
+```
+
 ### [node.backlog_parameters]
 
 Controls the transaction backlog (the queue of pending transactions).
@@ -213,6 +234,43 @@ TCP port on which the validator binds its Prometheus metrics endpoint (`0.0.0.0:
 **Example:**
 ```toml
 prometheus_exporter_port = 9001
+```
+
+### Console ports
+
+Both are optional and bound on localhost. When omitted, an ephemeral port is chosen at startup;
+set them explicitly to reach the consoles on known ports and to avoid a startup port-collision
+race on hosts running many node processes.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `tokio_console_port` | integer | *ephemeral* | Port for the async-runtime `tokio-console` subscriber. |
+| `tcp_console_port` | integer | *ephemeral* | Port for the node's `tcp_console` admin console — log-filter reload, network status, and on-demand database dump. |
+
+**Example:**
+```toml
+tokio_console_port = 6669
+tcp_console_port   = 6670
+```
+
+### [p2p_auth]
+
+Optional. Configures external peer authentication against an authentication smart contract. Omit
+the whole section unless your deployment uses one; a validator that omits it performs no external
+peer authentication.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `auth_sc_address` | string | Address of the authentication smart contract. Must be `0x`-prefixed, valid hexadecimal, and of even length. |
+| `auth_sc_client` | string | URL of the client used to query the contract. Must begin with `http://` or `https://`. |
+
+Both are validated at startup, and the node refuses to start if either is malformed.
+
+**Example:**
+```toml
+[p2p_auth]
+auth_sc_address = "0x1234abcd..."
+auth_sc_client  = "https://auth.example.com"
 ```
 
 ---
