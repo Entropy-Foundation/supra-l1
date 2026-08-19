@@ -15,14 +15,19 @@
 // (validator) or config.toml (RPC node). `instance` is the name the dashboards will
 // show, so use something you will recognise.
 //
+// You do not need to label a target as a validator or an RPC node. Every node already
+// tags its own metrics with `node_type` — `validator`, `ws_rpc` or `rest_rpc` — and that
+// is the label the dashboards and alert rules select on. Adding your own role label here
+// would not feed them.
+//
 // If Alloy runs in a container and the node runs on the container host, address the
 // host as "host.containers.internal" (Podman) or "host.docker.internal" (Docker)
 // rather than "localhost".
 // ---------------------------------------------------------------------------
 prometheus.scrape "supra_nodes" {
   targets = [
-    {"__address__" = "host.containers.internal:9000", "instance" = "my-validator", "role" = "validator"},
-    // {"__address__" = "host.containers.internal:9100", "instance" = "my-rpc", "role" = "rpc"},
+    {"__address__" = "host.containers.internal:9000", "instance" = "my-validator"},
+    // {"__address__" = "host.containers.internal:9100", "instance" = "my-rpc"},
   ]
 
   forward_to      = [prometheus.remote_write.mimir.receiver]

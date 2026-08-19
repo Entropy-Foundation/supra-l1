@@ -16,7 +16,7 @@ import the dashboards and skip to [dashboards.md](./dashboards.md).
 | Loki    | 3100                | Log storage                                                 |
 | Tempo   | 3200                | Trace storage                                               |
 
-Grafana comes up pre-provisioned with the three datasources, all eight Supra
+Grafana comes up pre-provisioned with the three datasources (Mimir, Loki and Tempo), all eight Supra
 dashboards in a **Supra** folder, and the `supra-slo` alert rules in a
 **Supra Alerts** folder.
 
