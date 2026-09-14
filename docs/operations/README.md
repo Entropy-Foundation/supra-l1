@@ -16,6 +16,16 @@ mainnet templates alongside each guide.
 > Changes between releases are summarised in the
 > [release changelogs](../release/mainnet).
 
+## Storage
+
+How much memory to give each RocksDB database, and what the on-disk format
+commits you to across an upgrade.
+
+- [Overview](./storage/README.md) — the databases a node carries
+- [Sizing RocksDB memory](./storage/memory-sizing.md) — cache and memtable budgets
+- [Upgrading past the release that enables ZSTD](./storage/compression-upgrade.md) —
+  a one-way upgrade for snapshots and rollbacks
+
 ## Observability
 
 How to collect metrics, logs, and traces from your nodes, and what to do with
