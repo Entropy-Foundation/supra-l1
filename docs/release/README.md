@@ -16,6 +16,7 @@ mainnet at all. Each network directory therefore carries its own chain.
 
 | Release | Node binary | Framework | Notes |
 | ------- | ----------- | --------- | ----- |
+| [v11.7.0](./mainnet/v11.7.0) | `supra_node_v11.7.0` | `aptosvm-v1.16_supra-v1.8.17` | config, REST API, storage, `supra` CLI |
 | [v11.5.1](./mainnet/v11.5.1) | `supra_node_v11.5.1` | `aptosvm-v1.16_supra-v1.8.15` | config, features, `supra` CLI, framework |
 | [v11.4.3](./mainnet/v11.4.3) | `supra_node_v11.4.3` | `aptosvm-v1.16_supra-v1.8.13` | config, REST API, both CLIs, framework |
 | [v11.3.6](./mainnet/v11.3.6) | `supra_node_v11.3.6` | `aptosvm-v1.16_supra-v1.8.9`  | config, REST API, both CLIs, framework |
